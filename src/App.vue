@@ -24,20 +24,26 @@ const productoForm = ref({
   name: '',
   description: '',
   price: 0,
-  category: ''
+  category: '',
+  imageFile: ''
 })
 
 // --- PROPIEDADES COMPUTADAS ---
 const totalItems = computed(() => itemsCarrito.value.reduce((acc, item) => acc + item.quantity, 0))
 const totalPrecio = computed(() => itemsCarrito.value.reduce((acc, item) => acc + (item.price * item.quantity), 0))
 
-// Filtrar productos para la CONSULTA/BÚSQUEDA en tiempo real
+// Filtrar productos para BÚSQUEDA en tiempo real
 const productosFiltrados = computed(() => {
   if (!textoBusqueda.value.trim()) return productos.value
   return productos.value.filter(p => 
     p.name && p.name.toLowerCase().includes(textoBusqueda.value.toLowerCase())
   )
 })
+
+// Función auxiliar para obtener la URL de imagen del producto
+const obtenerUrlImagen = (producto) => {
+  return producto.imagesFiles || producto.imageFile || producto.image || ''
+}
 
 // --- FUNCIONES CRUD (CATÁLOGO) ---
 
@@ -63,11 +69,12 @@ const guardarNuevoProducto = async () => {
 
   try {
     const payload = {
-      name: productoForm.value.name,
-      description: productoForm.value.description,
-      price: Number(productoForm.value.price),
-      category: [productoForm.value.category || 'General']
-    }
+  name: productoForm.value.name,
+  descripcion: productoForm.value.description, 
+  price: Number(productoForm.value.price),
+  category: [productoForm.value.category || 'General'],
+  imagesFiles: productoForm.value.imageFile || 'default.png' 
+}
 
     await axios.post(`${CATALOG_API}/products`, payload)
     alert('¡Producto agregado con éxito!')
@@ -85,9 +92,10 @@ const abrirEditar = (prod) => {
   productoForm.value = {
     id: prod.id,
     name: prod.name,
-    description: prod.description || '',
+    description: prod.descripcion || prod.description || '', // Lee 'descripcion'
     price: prod.price,
-    category: Array.isArray(prod.category) ? prod.category[0] : (prod.category || '')
+    category: Array.isArray(prod.category) ? prod.category[0] : (prod.category || ''),
+    imageFile: prod.imagesFiles || prod.imageFile || '' // Lee 'imagesFiles'
   }
   mostrarModalEditar.value = true
 }
@@ -95,12 +103,13 @@ const abrirEditar = (prod) => {
 const actualizarProducto = async () => {
   try {
     const payload = {
-      id: productoForm.value.id,
-      name: productoForm.value.name,
-      description: productoForm.value.description,
-      price: Number(productoForm.value.price),
-      category: [productoForm.value.category || 'General']
-    }
+  id: productoForm.value.id,
+  name: productoForm.value.name,
+  descripcion: productoForm.value.description, // Cambiado 'description' por 'descripcion'
+  price: Number(productoForm.value.price),
+  category: [productoForm.value.category || 'General'],
+  imagesFiles: productoForm.value.imageFile || 'default.png' // Cambiado 'imageFile' por 'imagesFiles'
+}
 
     await axios.put(`${CATALOG_API}/products`, payload)
     alert('¡Producto actualizado!')
@@ -128,7 +137,7 @@ const eliminarProducto = async (id) => {
 }
 
 const limpiarFormulario = () => {
-  productoForm.value = { id: null, name: '', description: '', price: 0, category: '' }
+  productoForm.value = { id: null, name: '', description: '', price: 0, category: '', imageFile: '' }
 }
 
 // --- FUNCIONES DEL CARRITO (BASKET) ---
@@ -192,7 +201,7 @@ const realizarCompra = async () => {
   mostrarCarrito.value = false
 }
 
-// Cargar datos al iniciar la aplicación
+// Cargar datos al iniciar
 onMounted(async () => {
   await obtenerProductos()
   await cargarCarritoDesdeBackend()
@@ -216,7 +225,7 @@ onMounted(async () => {
       </div>
     </header>
 
-    <!-- Banner Principal (Consultar con Barra de Búsqueda) -->
+    <!-- Banner Principal -->
     <section class="hero-banner">
       <h1 class="hero-title">¡Encuentra los mejores productos al mejor precio!</h1>
       <p class="hero-subtitle">Aprovecha nuestros descuentos de temporada</p>
@@ -244,11 +253,24 @@ onMounted(async () => {
 
       <div v-else class="product-grid">
         <div v-for="producto in productosFiltrados" :key="producto.id" class="product-card">
-          <div class="card-image">
-            <span>📦</span>
+          
+          <!-- Contenedor de la Imagen del Producto -->
+          <div class="card-image-container">
+            <img 
+              v-if="obtenerUrlImagen(producto) && obtenerUrlImagen(producto).startsWith('http')" 
+              :src="obtenerUrlImagen(producto)" 
+              :alt="producto.name"
+              class="product-img"
+              @error="(e) => e.target.style.display = 'none'"
+            />
+            <div v-else class="placeholder-img">
+              <span>👗</span>
+            </div>
           </div>
+
           <div class="card-body">
             <h3>{{ producto.name }}</h3>
+            <!-- Descripción del producto -->
             <p class="description">{{ producto.description || 'Sin descripción disponible.' }}</p>
             <div class="card-footer">
               <span class="price">${{ producto.price }}</span>
@@ -273,19 +295,23 @@ onMounted(async () => {
         <h3>➕ Insertar Nuevo Producto</h3>
         <div class="form-group">
           <label>Nombre:</label>
-          <input v-model="productoForm.name" type="text" placeholder="Ej: Laptop Dell" />
+          <input v-model="productoForm.name" type="text" placeholder="Ej: Vestido Elegante" />
         </div>
         <div class="form-group">
           <label>Precio:</label>
-          <input v-model.number="productoForm.price" type="number" placeholder="Ej: 1200" />
+          <input v-model.number="productoForm.price" type="number" placeholder="Ej: 299" />
+        </div>
+        <div class="form-group">
+          <label>URL de la Imagen:</label>
+          <input v-model="productoForm.imageFile" type="text" placeholder="Ej: https://ejemplo.com/imagen.jpg" />
         </div>
         <div class="form-group">
           <label>Descripción:</label>
-          <textarea v-model="productoForm.description" placeholder="Descripción corta"></textarea>
+          <textarea v-model="productoForm.description" placeholder="Descripción del producto"></textarea>
         </div>
         <div class="form-group">
           <label>Categoría:</label>
-          <input v-model="productoForm.category" type="text" placeholder="Ej: Electrónica" />
+          <input v-model="productoForm.category" type="text" placeholder="Ej: Ropa" />
         </div>
         <div class="modal-buttons">
           <button class="btn-save" @click="guardarNuevoProducto">Guardar</button>
@@ -305,6 +331,10 @@ onMounted(async () => {
         <div class="form-group">
           <label>Precio:</label>
           <input v-model.number="productoForm.price" type="number" />
+        </div>
+        <div class="form-group">
+          <label>URL de la Imagen:</label>
+          <input v-model="productoForm.imageFile" type="text" placeholder="https://ejemplo.com/imagen.jpg" />
         </div>
         <div class="form-group">
           <label>Descripción:</label>
