@@ -62,27 +62,22 @@ const obtenerProductos = async () => {
 
 // 2. INSERTAR PRODUCTO
 const guardarNuevoProducto = async () => {
-  if (!productoForm.value.name || !productoForm.value.price) {
-    alert('Nombre y precio son obligatorios')
-    return
-  }
-
   try {
     const payload = {
-  name: productoForm.value.name,
-  descripcion: productoForm.value.description, 
-  price: Number(productoForm.value.price),
-  category: [productoForm.value.category || 'General'],
-  imagesFiles: productoForm.value.imageFile || 'default.png' 
-}
+      name: productoForm.value.name,
+      descripcion: productoForm.value.description, // Coincide con 'Descripcion' de C#
+      price: Number(productoForm.value.price),
+      category: [productoForm.value.category || 'General'], // Marten exige que sea un Array/Lista
+      imagesFiles: productoForm.value.imageFile || '' // Coincide con 'ImagesFiles' de C# (con S final)
+    }
 
     await axios.post(`${CATALOG_API}/products`, payload)
-    alert('¡Producto agregado con éxito!')
-    mostrarModalCrear.value = false
-    limpiarFormulario()
-    await obtenerProductos()
-  } catch (err) {
-    console.error('Error al crear producto:', err)
+    
+    alert('¡Producto creado exitosamente!')
+    mostrarModalNuevo.value = false
+    await cargarProductos() // Recargar lista
+  } catch (error) {
+    console.error('Error al crear producto:', error)
     alert('Error al crear el producto')
   }
 }
