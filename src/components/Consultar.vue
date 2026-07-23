@@ -17,9 +17,16 @@ const buscarPorNombre = async () => {
   }
 
   try {
-    // 🔥 CAMBIO AQUÍ: Se agrega '/products' antes de '/search/'
-    const res = await axios.get(`${API_URL}/products/search/${encodeURIComponent(nombreBusqueda.value)}`)
-    resultados.value = res.data
+    // 1. Pedimos todos los productos a la ruta existente '/products'
+    const res = await axios.get(`${API_URL}/products`)
+    
+    // extraemos la lista (según tu backend, viene dentro de res.data.products)
+    const listaCompleta = res.data.products || res.data 
+
+    // 2. Filtramos localmente por el nombre que escribió el usuario
+    resultados.value = listaCompleta.filter(prod => 
+      prod.name.toLowerCase().includes(nombreBusqueda.value.toLowerCase())
+    )
 
     if (resultados.value.length > 0) {
       mostrarMensaje(`Se encontraron ${resultados.value.length} producto(s)`)
