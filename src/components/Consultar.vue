@@ -17,7 +17,8 @@ const buscarPorNombre = async () => {
   }
 
   try {
-    const res = await axios.get(`${API_URL}/search/${encodeURIComponent(nombreBusqueda.value)}`)
+    // 🔥 CAMBIO AQUÍ: Se agrega '/products' antes de '/search/'
+    const res = await axios.get(`${API_URL}/products/search/${encodeURIComponent(nombreBusqueda.value)}`)
     resultados.value = res.data
 
     if (resultados.value.length > 0) {
@@ -64,4 +65,3 @@ const mostrarMensaje = (txt, error = false) => {
     </div>
   </div>
 </template>
-
