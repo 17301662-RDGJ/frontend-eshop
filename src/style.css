@@ -1356,7 +1356,7 @@ code {
 .total-row { display: flex; justify-content: space-between; font-size: 1.2rem; margin-bottom: 1rem; color: #78350f; }
 .btn-checkout { width: 100%; background: #ea580c; color: white; border: none; padding: 0.75rem; border-radius: 8px; font-size: 1rem; font-weight: bold; cursor: pointer; }
 
-
+/* --- RESET GENERAL Y TIENDA --- */
 * {
   box-sizing: border-box;
   margin: 0;
@@ -1580,6 +1580,7 @@ body {
   min-height: 40px;
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2; /* <-- AGREGA ESTA LÍNEA */
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
