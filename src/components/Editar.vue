@@ -5,7 +5,7 @@ import axios from 'axios'
 const API_URL = 'https://eshop-services-az0q.onrender.com'
 
 const nombreABuscar = ref('')
-const form = ref({ newName: '', price: 0, description: '', imageFile: '' })
+const form = ref({ name: '', price: 0, description: '', imageFile: '' })
 const categoriasTexto = ref('')
 const productoCargado = ref(false)
 const mensaje = ref('')
@@ -17,15 +17,17 @@ const cargarPorNombre = async () => {
 
   try {
     const res = await axios.get(`${API_URL}/search/${encodeURIComponent(nombreABuscar.value)}`)
-    if (res.data.length > 0) {
+    if (res.data && res.data.length > 0) {
       const prod = res.data[0]
+      
       form.value = {
-        newName: prod.name,
-        price: prod.price,
-        description: prod.description || '',
-        imageFile: prod.imageFile || ''
+        name: prod.name || '',
+        price: prod.price || 0,
+        description: prod.description || prod.descripcion || '',
+        imageFile: prod.imageFile || prod.imagesFiles || ''
       }
-      categoriasTexto.value = Array.isArray(prod.category) ? prod.category.join(', ') : prod.category
+      
+      categoriasTexto.value = Array.isArray(prod.category) ? prod.category.join(', ') : (prod.category || '')
       productoCargado.value = true
       mostrarMensaje(`Producto "${prod.name}" cargado`)
     } else {
@@ -38,17 +40,18 @@ const cargarPorNombre = async () => {
 }
 
 const actualizar = async () => {
+  // PAYLOAD CORREGIDO: "name" coincide con el comando C#
   const payload = {
-    newName: form.value.newName,
+    name: form.value.name,
     category: categoriasTexto.value ? categoriasTexto.value.split(',').map(c => c.trim()) : [],
     description: form.value.description,
-    imageFile: form.value.imageFile || 'default.png',
+    imageFile: form.value.imageFile,
     price: Number(form.value.price)
   }
 
   try {
     await axios.put(`${API_URL}/by-name/${encodeURIComponent(nombreABuscar.value)}`, payload)
-    mostrarMensaje('¡Producto actualizado con éxito por su nombre!')
+    mostrarMensaje('¡Producto actualizado con éxito!')
     productoCargado.value = false
     nombreABuscar.value = ''
   } catch (err) {
@@ -72,28 +75,37 @@ const mostrarMensaje = (txt, error = false) => {
 
     <div class="search-box">
       <label>Ingresa el nombre del producto a editar:</label>
-      <input v-model="nombreABuscar" placeholder="Ej: Dell" class="form-control" />
+      <input v-model="nombreABuscar" placeholder="Ej: Vestido de Verano" class="form-control" />
       <button @click="cargarPorNombre" class="btn btn-primary" style="margin-top: 10px;">Cargar Datos</button>
     </div>
 
     <!-- FORMULARIO DE EDICIÓN -->
     <div v-if="productoCargado" class="edit-form" style="max-width: 500px; margin: 20px auto 0 auto;">
       <div class="form-group">
-        <label>Nuevo Nombre:</label>
-        <input v-model="form.newName" class="form-control" />
+        <label>Nombre del Producto:</label>
+        <input v-model="form.name" class="form-control" />
       </div>
+
       <div class="form-group">
         <label>Precio ($):</label>
         <input type="number" step="0.01" v-model.number="form.price" class="form-control" />
       </div>
+
       <div class="form-group">
         <label>Categorías:</label>
         <input v-model="categoriasTexto" class="form-control" />
       </div>
+
+      <div class="form-group">
+        <label>URL de la Imagen:</label>
+        <input v-model="form.imageFile" class="form-control" placeholder="https://..." />
+      </div>
+
       <div class="form-group">
         <label>Descripción:</label>
         <textarea v-model="form.description" class="form-control" rows="2"></textarea>
       </div>
+
       <button @click="actualizar" class="btn btn-warning" style="margin-top: 15px; width: 100%;">
         Guardar Cambios por Nombre
       </button>
