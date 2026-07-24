@@ -40,9 +40,14 @@ const productosFiltrados = computed(() => {
   )
 })
 
-// Función auxiliar para obtener la URL de imagen del producto
+// Función auxiliar para obtener la URL de imagen del producto (soporta imageFile, imagesFiles o image)
 const obtenerUrlImagen = (producto) => {
-  return producto.imagesFiles || producto.imageFile || producto.image || ''
+  return producto.imageFile || producto.imagesFiles || producto.image || ''
+}
+
+// Función auxiliar para obtener la descripción del producto (soporta description o descripcion)
+const obtenerDescripcion = (producto) => {
+  return producto.description || producto.descripcion || 'Sin descripción disponible.'
 }
 
 // --- FUNCIONES CRUD (CATÁLOGO) ---
@@ -65,17 +70,20 @@ const guardarNuevoProducto = async () => {
   try {
     const payload = {
       name: productoForm.value.name,
-      descripcion: productoForm.value.description, // Coincide con 'Descripcion' de C#
+      description: productoForm.value.description, // Enviamos ambos para C#
+      descripcion: productoForm.value.description,
       price: Number(productoForm.value.price),
-      category: [productoForm.value.category || 'General'], // Marten exige que sea un Array/Lista
-      imagesFiles: productoForm.value.imageFile || '' // Coincide con 'ImagesFiles' de C# (con S final)
+      category: [productoForm.value.category || 'General'],
+      imageFile: productoForm.value.imageFile || 'default.png',
+      imagesFiles: productoForm.value.imageFile || 'default.png'
     }
 
     await axios.post(`${CATALOG_API}/products`, payload)
     
     alert('¡Producto creado exitosamente!')
-    mostrarModalNuevo.value = false
-    await cargarProductos() // Recargar lista
+    mostrarModalCrear.value = false // Corregido: antes decía mostrarModalNuevo
+    limpiarFormulario()
+    await obtenerProductos() // Corregido: antes decía cargarProductos
   } catch (error) {
     console.error('Error al crear producto:', error)
     alert('Error al crear el producto')
@@ -87,10 +95,10 @@ const abrirEditar = (prod) => {
   productoForm.value = {
     id: prod.id,
     name: prod.name,
-    description: prod.descripcion || prod.description || '', // Lee 'descripcion'
+    description: prod.description || prod.descripcion || '', // Lee cualquiera de las dos
     price: prod.price,
     category: Array.isArray(prod.category) ? prod.category[0] : (prod.category || ''),
-    imageFile: prod.imagesFiles || prod.imageFile || '' // Lee 'imagesFiles'
+    imageFile: prod.imageFile || prod.imagesFiles || '' // Lee cualquiera de las dos
   }
   mostrarModalEditar.value = true
 }
@@ -98,14 +106,17 @@ const abrirEditar = (prod) => {
 const actualizarProducto = async () => {
   try {
     const payload = {
-  id: productoForm.value.id,
-  name: productoForm.value.name,
-  descripcion: productoForm.value.description, // Cambiado 'description' por 'descripcion'
-  price: Number(productoForm.value.price),
-  category: [productoForm.value.category || 'General'],
-  imagesFiles: productoForm.value.imageFile || 'default.png' // Cambiado 'imageFile' por 'imagesFiles'
-}
+      id: productoForm.value.id,
+      name: productoForm.value.name,
+      description: productoForm.value.description, // Enviamos tanto description como descripcion
+      descripcion: productoForm.value.description,
+      price: Number(productoForm.value.price),
+      category: [productoForm.value.category || 'General'],
+      imageFile: productoForm.value.imageFile || 'default.png',
+      imagesFiles: productoForm.value.imageFile || 'default.png'
+    }
 
+    // Petición a la API (probamos Endpoint general /products)
     await axios.put(`${CATALOG_API}/products`, payload)
     alert('¡Producto actualizado!')
     mostrarModalEditar.value = false
@@ -265,8 +276,8 @@ onMounted(async () => {
 
           <div class="card-body">
             <h3>{{ producto.name }}</h3>
-            <!-- Descripción del producto -->
-            <p class="description">{{ producto.description || 'Sin descripción disponible.' }}</p>
+            <!-- Descripción del producto CORREGIDA -->
+            <p class="description">{{ obtenerDescripcion(producto) }}</p>
             <div class="card-footer">
               <span class="price">${{ producto.price }}</span>
               <button class="btn-add-cart" @click="agregarAlCarrito(producto)">
