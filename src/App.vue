@@ -13,10 +13,12 @@ const itemsCarrito = ref([])
 const cargando = ref(true)
 const mostrarCarrito = ref(false)
 
+// Estados para Búsqueda
+const textoBusqueda = ref('')
+
 // Estados para Modales de Administración (CRUD)
 const mostrarModalCrear = ref(false)
 const mostrarModalEditar = ref(false)
-const textoBusqueda = ref('')
 
 // Formulario de Producto (Crear / Editar)
 const productoForm = ref({
@@ -29,10 +31,8 @@ const productoForm = ref({
 })
 
 // --- PROPIEDADES COMPUTADAS ---
-const totalItems = computed(() => itemsCarrito.value.reduce((acc, item) => acc + item.quantity, 0))
-const totalPrecio = computed(() => itemsCarrito.value.reduce((acc, item) => acc + (item.price * item.quantity), 0))
 
-// Filtrar productos para BÚSQUEDA en tiempo real
+// 1. Filtrar productos por búsqueda
 const productosFiltrados = computed(() => {
   if (!textoBusqueda.value.trim()) return productos.value
   return productos.value.filter(p => 
@@ -40,19 +40,44 @@ const productosFiltrados = computed(() => {
   )
 })
 
-// Función auxiliar para obtener la URL de imagen del producto (soporta imageFile, imagesFiles o image)
+// 2. Agrupar productos filtrados por categoría de forma dinámica
+const productosPorCategoria = computed(() => {
+  const grupos = {}
+
+  productosFiltrados.value.forEach(prod => {
+    let catNombre = 'Sin Categoría'
+    if (Array.isArray(prod.category) && prod.category.length > 0 && prod.category[0]) {
+      catNombre = prod.category[0]
+    } else if (typeof prod.category === 'string' && prod.category.trim()) {
+      catNombre = prod.category
+    }
+
+    // Capitalizar primera letra para uniformidad (ej: "ropa" -> "Ropa")
+    catNombre = catNombre.charAt(0).toUpperCase() + catNombre.slice(1).toLowerCase()
+
+    if (!grupos[catNombre]) {
+      grupos[catNombre] = []
+    }
+    grupos[catNombre].push(prod)
+  })
+
+  return grupos
+})
+
+const totalItems = computed(() => itemsCarrito.value.reduce((acc, item) => acc + item.quantity, 0))
+const totalPrecio = computed(() => itemsCarrito.value.reduce((acc, item) => acc + (item.price * item.quantity), 0))
+
+// Funciones auxiliares
 const obtenerUrlImagen = (producto) => {
   return producto.imageFile || producto.imagesFiles || producto.image || ''
 }
 
-// Función auxiliar para obtener la descripción del producto (soporta description o descripcion)
 const obtenerDescripcion = (producto) => {
   return producto.description || producto.descripcion || 'Sin descripción disponible.'
 }
 
 // --- FUNCIONES CRUD (CATÁLOGO) ---
 
-// 1. OBTENER / CONSULTAR PRODUCTOS
 const obtenerProductos = async () => {
   cargando.value = true
   try {
@@ -65,12 +90,11 @@ const obtenerProductos = async () => {
   }
 }
 
-// 2. INSERTAR PRODUCTO
 const guardarNuevoProducto = async () => {
   try {
     const payload = {
       name: productoForm.value.name,
-      description: productoForm.value.description, // Enviamos ambos para C#
+      description: productoForm.value.description,
       descripcion: productoForm.value.description,
       price: Number(productoForm.value.price),
       category: [productoForm.value.category || 'General'],
@@ -79,26 +103,24 @@ const guardarNuevoProducto = async () => {
     }
 
     await axios.post(`${CATALOG_API}/products`, payload)
-    
     alert('¡Producto creado exitosamente!')
-    mostrarModalCrear.value = false // Corregido: antes decía mostrarModalNuevo
+    mostrarModalCrear.value = false
     limpiarFormulario()
-    await obtenerProductos() // Corregido: antes decía cargarProductos
+    await obtenerProductos()
   } catch (error) {
     console.error('Error al crear producto:', error)
     alert('Error al crear el producto')
   }
 }
 
-// 3. EDITAR PRODUCTO
 const abrirEditar = (prod) => {
   productoForm.value = {
     id: prod.id,
     name: prod.name,
-    description: prod.description || prod.descripcion || '', // Lee cualquiera de las dos
+    description: prod.description || prod.descripcion || '',
     price: prod.price,
     category: Array.isArray(prod.category) ? prod.category[0] : (prod.category || ''),
-    imageFile: prod.imageFile || prod.imagesFiles || '' // Lee cualquiera de las dos
+    imageFile: prod.imageFile || prod.imagesFiles || ''
   }
   mostrarModalEditar.value = true
 }
@@ -108,7 +130,7 @@ const actualizarProducto = async () => {
     const payload = {
       id: productoForm.value.id,
       name: productoForm.value.name,
-      description: productoForm.value.description, // Enviamos tanto description como descripcion
+      description: productoForm.value.description,
       descripcion: productoForm.value.description,
       price: Number(productoForm.value.price),
       category: [productoForm.value.category || 'General'],
@@ -116,7 +138,6 @@ const actualizarProducto = async () => {
       imagesFiles: productoForm.value.imageFile || 'default.png'
     }
 
-    // Petición a la API (probamos Endpoint general /products)
     await axios.put(`${CATALOG_API}/products`, payload)
     alert('¡Producto actualizado!')
     mostrarModalEditar.value = false
@@ -128,7 +149,6 @@ const actualizarProducto = async () => {
   }
 }
 
-// 4. ELIMINAR PRODUCTO
 const eliminarProducto = async (id) => {
   if (!confirm('¿Estás segura de que deseas eliminar este producto?')) return
 
@@ -207,7 +227,6 @@ const realizarCompra = async () => {
   mostrarCarrito.value = false
 }
 
-// Cargar datos al iniciar
 onMounted(async () => {
   await obtenerProductos()
   await cargarCarritoDesdeBackend()
@@ -247,9 +266,9 @@ onMounted(async () => {
       </div>
     </section>
 
-    <!-- Catálogo de Productos -->
+    <!-- Catálogo de Productos Agrupados por Categoría -->
     <main class="main-content">
-      <h2>Nuestros Productos ({{ productosFiltrados.length }})</h2>
+      <h2 class="main-title">Nuestros Productos ({{ productosFiltrados.length }})</h2>
       
       <div v-if="cargando" class="loading">Cargando catálogo...</div>
 
@@ -257,41 +276,57 @@ onMounted(async () => {
         No se encontraron productos que coincidan con "{{ textoBusqueda }}".
       </div>
 
-      <div v-else class="product-grid">
-        <div v-for="producto in productosFiltrados" :key="producto.id" class="product-card">
-          
-          <!-- Contenedor de la Imagen del Producto -->
-          <div class="card-image-container">
-            <img 
-              v-if="obtenerUrlImagen(producto) && obtenerUrlImagen(producto).startsWith('http')" 
-              :src="obtenerUrlImagen(producto)" 
-              :alt="producto.name"
-              class="product-img"
-              @error="(e) => e.target.style.display = 'none'"
-            />
-            <div v-else class="placeholder-img">
-              <span>👗</span>
-            </div>
-          </div>
+      <div v-else class="categories-sections">
+        <!-- SECCIÓN POR CATEGORÍA -->
+        <section 
+          v-for="(listaProductos, categoria) in productosPorCategoria" 
+          :key="categoria" 
+          class="category-group"
+        >
+          <!-- TÍTULO DE LA CATEGORÍA -->
+          <h3 class="category-title">
+            🏷️ {{ categoria }} <span class="count">({{ listaProductos.length }})</span>
+          </h3>
 
-          <div class="card-body">
-            <h3>{{ producto.name }}</h3>
-            <!-- Descripción del producto CORREGIDA -->
-            <p class="description">{{ obtenerDescripcion(producto) }}</p>
-            <div class="card-footer">
-              <span class="price">${{ producto.price }}</span>
-              <button class="btn-add-cart" @click="agregarAlCarrito(producto)">
-                + Agregar
-              </button>
+          <!-- CUADRÍCULA DE PRODUCTOS -->
+          <div class="product-grid">
+            <div v-for="producto in listaProductos" :key="producto.id" class="product-card">
+              
+              <!-- Imagen del Producto -->
+              <div class="card-image-container">
+                <img 
+                  v-if="obtenerUrlImagen(producto) && obtenerUrlImagen(producto).startsWith('http')" 
+                  :src="obtenerUrlImagen(producto)" 
+                  :alt="producto.name"
+                  class="product-img"
+                  @error="(e) => e.target.style.display = 'none'"
+                />
+                <div v-else class="placeholder-img">
+                  <span>👗</span>
+                </div>
+              </div>
+
+              <!-- Detalles del Producto -->
+              <div class="card-body">
+                <h3>{{ producto.name }}</h3>
+                <p class="description">{{ obtenerDescripcion(producto) }}</p>
+                <div class="card-footer">
+                  <span class="price">${{ producto.price }}</span>
+                  <button class="btn-add-cart" @click="agregarAlCarrito(producto)">
+                    + Agregar
+                  </button>
+                </div>
+              </div>
+              
+              <!-- Controles Admin -->
+              <div class="card-admin-actions">
+                <button class="btn-edit" @click="abrirEditar(producto)">✏️ Editar</button>
+                <button class="btn-delete" @click="eliminarProducto(producto.id)">🗑️ Eliminar</button>
+              </div>
+
             </div>
           </div>
-          
-          <!-- Controles Admin de Editar / Eliminar -->
-          <div class="card-admin-actions">
-            <button class="btn-edit" @click="abrirEditar(producto)">✏️ Editar</button>
-            <button class="btn-delete" @click="eliminarProducto(producto.id)">🗑️ Eliminar</button>
-          </div>
-        </div>
+        </section>
       </div>
     </main>
 
@@ -317,7 +352,7 @@ onMounted(async () => {
         </div>
         <div class="form-group">
           <label>Categoría:</label>
-          <input v-model="productoForm.category" type="text" placeholder="Ej: Ropa" />
+          <input v-model="productoForm.category" type="text" placeholder="Ej: Ropa, Calzado, Telefonía" />
         </div>
         <div class="modal-buttons">
           <button class="btn-save" @click="guardarNuevoProducto">Guardar</button>
